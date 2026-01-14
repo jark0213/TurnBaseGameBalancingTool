@@ -6,6 +6,8 @@ using TurnBasedSim.Standard;
 
 public class SimUIManager : MonoBehaviour
 {
+    // 업로드 테스트
+    
     [Header("Player Settings")]
     public TMP_InputField playerHpInput;
     public TMP_InputField playerDmgInput;
