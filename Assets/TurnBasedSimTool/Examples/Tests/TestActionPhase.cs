@@ -1,30 +1,48 @@
-using UnityEngine;
+using TurnBasedSim.Core;
 
-namespace TurnBasedSim.Core {
-    public class TestActionPhase : BattlePhaseBase {
-        public TestActionPhase(string name, bool isPlayer) : base(name, isPlayer) { }
+public class TestActionPhase : ActionPhaseBase
+{
+    private bool _hasAttacked = false;
 
-        // 액션단위 실행으로 변경해야됨
-        public override void Execute(IBattleUnit player, IBattleUnit enemy, BattleContext context) {
-            var (attacker, defender) = GetUnits(player, enemy);
+    public TestActionPhase(string name, bool isPlayer) : base(name, isPlayer) { }
 
-            // 슬스파나 던전다이스처럼 "할 수 있는 행동"이 없을 때까지 반복
-            /*while (HasAvailableActions(attacker)) {
-                // 1. 구체적인 액션 결정 (카드 선택 혹은 주사위 결과)
-                var action = GetNextAction(attacker); 
+    // 페이즈가 시작될 때마다 공격 여부를 초기화해야 합니다.
+    public override void Execute(IBattleUnit player, IBattleUnit enemy, BattleContext context)
+    {
+        _hasAttacked = false; // 공격 기회 초기화
+        base.Execute(player, enemy, context);
+    }
 
-                // 2. 이 액션에 대한 전처리 (미들웨어)
-                foreach (var mw in Middlewares) mw.OnPreExecute(attacker, defender, context);
+    protected override bool HasAvailableActions(IBattleUnit unit, BattleContext context)
+    {
+        // 턴당 딱 한 번만 공격하고 루프를 빠져나가게 함
+        return !_hasAttacked;
+    }
 
-                // 3. 액션 실행 (실제 데미지 발생)
-                action.Execute(attacker, defender);
+    protected override IBattleAction GetNextAction(IBattleUnit unit, BattleContext context)
+    {
+        _hasAttacked = true;
+    
+        // 50% 확률로 강타, 50% 확률로 흡혈 사용 (랜덤 패턴 테스트)
+        if (UnityEngine.Random.value > 0.5f)
+            return new SmashAction();
+        else
+            return new DrainAction();
+    }
+}
 
-                // 4. 이 액션에 대한 후처리 (미들웨어 - 인챈트 트리거 등)
-                foreach (var mw in Middlewares) mw.OnPostExecute(attacker, defender, context);
+// 테스트를 위한 간단한 공격 액션 클래스
+public class SimpleAttackAction : IBattleAction
+{
+    public string ActionName => "BasicAttack";
+
+    public void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context)
+    {
+        // 실제로 상대방의 피를 깎음
+        int damage = 2; 
+        defender.CurrentHp -= damage;
         
-                // 사망 체크 등 흐름 제어
-                if (defender.IsDead) break;
-            }*/
-        }
+        // 유니티 콘솔에서 확인하고 싶다면 (10,000번 돌릴 땐 주석 처리 권장)
+        // UnityEngine.Debug.Log($"{attacker.Name}이 {defender.Name}에게 {damage} 데미지를 입힘!");
     }
 }
