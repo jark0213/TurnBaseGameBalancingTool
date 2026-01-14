@@ -1,25 +1,66 @@
-using System.Collections.Generic;
-using TurnBasedSim.Core;
 using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
+using TurnBasedSim.Core;
+using TurnBasedSim.Standard;
 
 public class SimUIManager : MonoBehaviour
 {
-    // ... UI 참조들 ...
+    [Header("Player Settings")]
+    public TMP_InputField playerHpInput;
+    public TMP_InputField playerDmgInput;
 
-    // 핵심: 툴이 실행될 때 어떤 액션들을 선택지에 넣을지 리스트로 관리
-    private List<IBattleAction> _availableActions = new List<IBattleAction>();
+    [Header("Enemy Settings")]
+    public TMP_InputField enemyHpInput;
+    public TMP_InputField enemyDmgInput;
 
-    public void Init(List<IBattleAction> actions)
+    [Header("Sim Settings")]
+    public TMP_InputField countInput;
+    public Button runButton;
+    public TextMeshProUGUI resultText;
+
+    private FlexibleBattleSimulator _simulator;
+    private MonteCarloRunner _runner;
+
+    void Start()
     {
-        _availableActions = actions;
-        // 드롭다운이나 버튼 리스트를 _availableActions 기반으로 생성
-        //UpdateActionSelectionUI();
+        _simulator = new FlexibleBattleSimulator();
+        _runner = new MonteCarloRunner(_simulator);
+        runButton.onClick.AddListener(OnRunClick);
     }
 
-    public void OnRunClick()
+    private void OnRunClick()
     {
-        // 1. UI에서 유닛 스탯 읽기
-        // 2. 선택된 액션들로 페이즈 구성
-        // 3. MonteCarloRunner 실행
+        // 1. 유닛 준비
+        var player = new DefaultUnit { 
+            Name = "Player", 
+            MaxHp = int.Parse(playerHpInput.text), 
+            CurrentHp = int.Parse(playerHpInput.text) 
+        };
+        var enemy = new DefaultUnit { 
+            Name = "Enemy", 
+            MaxHp = int.Parse(enemyHpInput.text), 
+            CurrentHp = int.Parse(enemyHpInput.text) 
+        };
+
+        // 2. 시뮬레이터 구성 (Phase 초기화 로직은 Simulator에 List.Clear() 추가 필요)
+        // 현재 FlexibleBattleSimulator에 Clear 기능이 없다면 새로 생성하여 교체
+        _simulator = new FlexibleBattleSimulator(); 
+        
+        var pPhase = new TestActionPhase("PlayerTurn", true);
+        pPhase.AddAction(new GenericAction { ActionName = "Atk", Damage = int.Parse(playerDmgInput.text) });
+
+        var ePhase = new TestActionPhase("EnemyTurn", false);
+        ePhase.AddAction(new GenericAction { ActionName = "Atk", Damage = int.Parse(enemyDmgInput.text) });
+
+        _simulator.AddPhase(pPhase);
+        _simulator.AddPhase(ePhase);
+
+        // 3. 실행 및 리포트 (깃허브의 MonteCarloReport 사용)
+        int iterations = int.Parse(countInput.text);
+        MonteCarloReport report = _runner.RunSimulation(player, enemy, iterations);
+
+        // 4. 결과 출력
+        resultText.text = $"Win Rate: {report.WinRate * 100:F2}%\nAvg Turns: {report.AvgTurns:F1}";
     }
 }

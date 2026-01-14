@@ -1,48 +1,37 @@
+using System.Collections.Generic;
 using TurnBasedSim.Core;
 
 public class TestActionPhase : ActionPhaseBase
 {
-    private bool _hasAttacked = false;
+    // 시뮬레이터 툴에서 동적으로 담을 액션 리스트
+    private readonly List<IBattleAction> _actions = new List<IBattleAction>();
+    private int _actionIndex = 0;
 
     public TestActionPhase(string name, bool isPlayer) : base(name, isPlayer) { }
 
-    // 페이즈가 시작될 때마다 공격 여부를 초기화해야 합니다.
+    // 외부(SimUIManager)에서 액션을 주입하기 위한 메서드
+    public void AddAction(IBattleAction action) => _actions.Add(action);
+
+    // 페이즈 시작 시 인덱스 초기화
     public override void Execute(IBattleUnit player, IBattleUnit enemy, BattleContext context)
     {
-        _hasAttacked = false; // 공격 기회 초기화
+        _actionIndex = 0; 
         base.Execute(player, enemy, context);
     }
 
+    // [원본 규격 준수] protected override 및 매개변수 (IBattleUnit, BattleContext)
     protected override bool HasAvailableActions(IBattleUnit unit, BattleContext context)
     {
-        // 턴당 딱 한 번만 공격하고 루프를 빠져나가게 함
-        return !_hasAttacked;
+        return _actionIndex < _actions.Count;
     }
 
+    // [원본 규격 준수] protected override 및 매개변수 (IBattleUnit, BattleContext)
     protected override IBattleAction GetNextAction(IBattleUnit unit, BattleContext context)
     {
-        _hasAttacked = true;
-    
-        // 50% 확률로 강타, 50% 확률로 흡혈 사용 (랜덤 패턴 테스트)
-        if (UnityEngine.Random.value > 0.5f)
-            return new SmashAction();
-        else
-            return new DrainAction();
-    }
-}
-
-// 테스트를 위한 간단한 공격 액션 클래스
-public class SimpleAttackAction : IBattleAction
-{
-    public string ActionName => "BasicAttack";
-
-    public void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context)
-    {
-        // 실제로 상대방의 피를 깎음
-        int damage = 2; 
-        defender.CurrentHp -= damage;
-        
-        // 유니티 콘솔에서 확인하고 싶다면 (10,000번 돌릴 땐 주석 처리 권장)
-        // UnityEngine.Debug.Log($"{attacker.Name}이 {defender.Name}에게 {damage} 데미지를 입힘!");
+        if (_actionIndex < _actions.Count)
+        {
+            return _actions[_actionIndex++];
+        }
+        return null;
     }
 }

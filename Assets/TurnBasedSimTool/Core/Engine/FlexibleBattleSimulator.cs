@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 
-namespace TurnBasedSim.Core {
-    public class FlexibleBattleSimulator {
+namespace TurnBasedSim.Core 
+{
+    public class FlexibleBattleSimulator 
+    {
         private List<IBattlePhase> _phases = new List<IBattlePhase>();
 
         public void AddPhase(IBattlePhase phase) {
@@ -29,6 +31,11 @@ namespace TurnBasedSim.Core {
             }
 
             return new SimulationResult(context.PlayerWon, context.CurrentTurn, p.CurrentHp, context.ResultMessage);
+        }
+        
+        public void ClearPhases()
+        {
+            _phases.Clear();
         }
     }
 }
