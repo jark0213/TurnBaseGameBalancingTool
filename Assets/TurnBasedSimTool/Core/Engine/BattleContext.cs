@@ -1,17 +1,24 @@
 using System;
+using TurnBasedSimTool.Core.Logic;
 
-namespace TurnBasedSim.Core {
-    public class BattleContext {
+namespace TurnBasedSimTool.Core {
+    public class BattleContext : IBattleState { // 인터페이스 구현 추가
         public int CurrentTurn;
         public bool IsFinished;
         public bool PlayerWon;
         public string ResultMessage;
 
-        // [추가] 타겟당 효과 적용 시 발생하는 이벤트
-        // <공격자, 타겟, 효과 데이터(데미지 등)>
+        // [범용 제약 수치들 직접 추가]
+        public bool UseCostSystem { get; set; } = true;
+        public int MaxActionsPerTurn { get; set; } = 1; // 기본은 1턴 1행동
+        public ICostHandler Cost { get; set; } 
+
+        // IBattleState 인터페이스 구현 (시뮬레이터가 참조하기 위함)
+        int IBattleState.TurnCount => CurrentTurn;
+        bool IBattleState.IsBattleOver => IsFinished;
+
         public Action<IBattleUnit, IBattleUnit, object> OnEffectApplied;
 
-        // 이벤트를 안전하게 호출하기 위한 헬퍼
         public void TriggerEffectApplied(IBattleUnit attacker, IBattleUnit target, object effectData) {
             OnEffectApplied?.Invoke(attacker, target, effectData);
         }

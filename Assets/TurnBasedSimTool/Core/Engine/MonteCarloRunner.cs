@@ -1,7 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
+using TurnBasedSimTool.Core.Logic;
 
-namespace TurnBasedSim.Core {
+namespace TurnBasedSimTool.Core {
+    /// <summary>
+    /// 몬테카를로 시뮬레이션 실행기
+    /// SimulationSettings를 기반으로 여러 판을 실행하고 통계를 생성합니다
+    /// </summary>
     public class MonteCarloRunner {
         private readonly FlexibleBattleSimulator _simulator;
 
@@ -9,12 +14,27 @@ namespace TurnBasedSim.Core {
             _simulator = simulator;
         }
 
-        public MonteCarloReport RunSimulation(IBattleUnit player, IBattleUnit enemy, int iterations) {
-            List<SimulationResult> results = new List<SimulationResult>(iterations);
+        /// <summary>
+        /// 시뮬레이션 실행 (SimulationSettings 기반)
+        /// </summary>
+        public MonteCarloReport RunSimulation(IBattleUnit player, IBattleUnit enemy, SimulationSettings settings) {
+            List<SimulationResult> results = new List<SimulationResult>(settings.Iterations);
 
-            for (int i = 0; i < iterations; i++) {
-                // 핵심: 원본 데이터가 변하지 않도록 내부에서 Clone은 시뮬레이터가 처리함
-                var result = _simulator.Run(player, enemy);
+            for (int i = 0; i < settings.Iterations; i++) {
+                // 매 판마다 독립적인 컨텍스트 생성 (데이터 오염 방지)
+                var context = new BattleContext {
+                    CurrentTurn = 0,
+                    IsFinished = false,
+                    UseCostSystem = settings.UseCostSystem,
+                    MaxActionsPerTurn = settings.MaxActionsPerTurn,
+                    Cost = new CostHandler {
+                        MaxCost = settings.MaxCost,
+                        RecoveryAmount = settings.RecoveryAmount
+                    }
+                };
+
+                // 시뮬레이터 실행
+                var result = _simulator.Run(player, enemy, context, settings.MaxTurns);
                 results.Add(result);
             }
 
@@ -22,7 +42,9 @@ namespace TurnBasedSim.Core {
         }
     }
 
-    // 통계 결과를 담는 구조체
+    /// <summary>
+    /// 몬테카를로 시뮬레이션 결과 통계
+    /// </summary>
     public struct MonteCarloReport {
         public int TotalCount;
         public int WinCount;

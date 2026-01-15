@@ -1,11 +1,19 @@
-using TurnBasedSim.Core;
+using TurnBasedSimTool.Core;
 
-public class DrainAction : IBattleAction
+namespace TurnBasedSimTool.Examples.Tests
 {
-    public string ActionName => "DrainAttack";
+    public class DrainAction : IBattleAction
+    {
+        public string ActionName => "DrainAttack";
+        public int GetCost(IBattleState state) => 0;
+        public bool CanExecute(IBattleState state) => true;
 
-    public void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context) {
-        defender.CurrentHp -= 2;
-        attacker.CurrentHp += 2;
+        public void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context)
+        {
+            defender.CurrentHp -= 2;
+            attacker.CurrentHp += 2;
+        }
+
+        public IBattleAction Clone() => new DrainAction();
     }
 }

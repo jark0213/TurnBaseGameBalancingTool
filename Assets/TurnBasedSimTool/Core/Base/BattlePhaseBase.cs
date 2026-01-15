@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 
-namespace TurnBasedSim.Core {
+namespace TurnBasedSimTool.Core {
     public abstract class BattlePhaseBase : IBattlePhase {
         public string PhaseName { get; }
         public bool IsPlayerPhase { get; }
-        
+
         // 전/후처리 미들웨어 리스트
         protected List<IBattleMiddleware> Middlewares = new List<IBattleMiddleware>();
 

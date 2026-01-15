@@ -1,4 +1,4 @@
-using TurnBasedSim.Core;
+using TurnBasedSimTool.Core;
 
 public class EnchantMiddleware : IBattleMiddleware {
     public bool OnPreExecute(IBattleUnit attacker, IBattleUnit defender, BattleContext context) {

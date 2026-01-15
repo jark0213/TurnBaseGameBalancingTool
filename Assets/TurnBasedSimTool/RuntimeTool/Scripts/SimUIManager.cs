@@ -1,68 +1,182 @@
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
-using TurnBasedSim.Core;
-using TurnBasedSim.Standard;
+using TurnBasedSimTool.Core;
+using TurnBasedSimTool.Standard;
 
-public class SimUIManager : MonoBehaviour
+namespace TurnBasedSimTool.Runtime
 {
-    // 업로드 테스트
-    
-    [Header("Player Settings")]
-    public TMP_InputField playerHpInput;
-    public TMP_InputField playerDmgInput;
-
-    [Header("Enemy Settings")]
-    public TMP_InputField enemyHpInput;
-    public TMP_InputField enemyDmgInput;
-
-    [Header("Sim Settings")]
-    public TMP_InputField countInput;
-    public Button runButton;
-    public TextMeshProUGUI resultText;
-
-    private FlexibleBattleSimulator _simulator;
-    private MonteCarloRunner _runner;
-
-    void Start()
+    /// <summary>
+    /// 런타임 시뮬레이션 UI 매니저
+    /// UI에서 설정된 값들을 기반으로 몬테카를로 시뮬레이션을 실행합니다
+    /// </summary>
+    public class SimUIManager : MonoBehaviour
     {
-        _simulator = new FlexibleBattleSimulator();
-        _runner = new MonteCarloRunner(_simulator);
-        runButton.onClick.AddListener(OnRunClick);
-    }
+        [Header("Player Settings")]
+        [SerializeField] TMP_InputField playerHpInput;
+        [SerializeField] TMP_InputField playerDmgInput;
+        [SerializeField] Button playerActionAddButton;
+        [SerializeField] Transform playerActionContent;
 
-    private void OnRunClick()
-    {
-        // 1. 유닛 준비
-        var player = new DefaultUnit { 
-            Name = "Player", 
-            MaxHp = int.Parse(playerHpInput.text), 
-            CurrentHp = int.Parse(playerHpInput.text) 
-        };
-        var enemy = new DefaultUnit { 
-            Name = "Enemy", 
-            MaxHp = int.Parse(enemyHpInput.text), 
-            CurrentHp = int.Parse(enemyHpInput.text) 
-        };
+        [Header("Enemy Settings")]
+        [SerializeField] TMP_InputField enemyHpInput;
+        [SerializeField] TMP_InputField enemyDmgInput;
+        [SerializeField] Button enemyActionAddButton;
+        [SerializeField] Transform enemyActionContent;
 
-        // 2. 시뮬레이터 구성 (Phase 초기화 로직은 Simulator에 List.Clear() 추가 필요)
-        // 현재 FlexibleBattleSimulator에 Clear 기능이 없다면 새로 생성하여 교체
-        _simulator = new FlexibleBattleSimulator(); 
-        
-        var pPhase = new TestActionPhase("PlayerTurn", true);
-        pPhase.AddAction(new GenericAction { ActionName = "Atk", Damage = int.Parse(playerDmgInput.text) });
+        [Header("Simulation Settings")]
+        [SerializeField] TMP_InputField iterationsInput;
+        [SerializeField] TMP_InputField maxTurnsInput;
+        [SerializeField] TMP_InputField maxActionsPerTurnInput;
+        [SerializeField] Toggle useCostSystemToggle;
+        [SerializeField] TMP_InputField maxCostInput;
+        [SerializeField] TMP_InputField recoveryAmountInput;
 
-        var ePhase = new TestActionPhase("EnemyTurn", false);
-        ePhase.AddAction(new GenericAction { ActionName = "Atk", Damage = int.Parse(enemyDmgInput.text) });
+        [Header("UI Controls")]
+        [SerializeField] Button runButton;
+        [SerializeField] TextMeshProUGUI resultText;
+        [SerializeField] GameObject actionItemPrefab;
 
-        _simulator.AddPhase(pPhase);
-        _simulator.AddPhase(ePhase);
+        private List<MonteCarloReport> _reportHistory = new List<MonteCarloReport>();
+        private FlexibleBattleSimulator _simulator;
+        private MonteCarloRunner _runner;
 
-        // 3. 실행 및 리포트 (깃허브의 MonteCarloReport 사용)
-        int iterations = int.Parse(countInput.text);
-        MonteCarloReport report = _runner.RunSimulation(player, enemy, iterations);
+        void Start()
+        {
+            _simulator = new FlexibleBattleSimulator();
+            _runner = new MonteCarloRunner(_simulator);
+            InitializeDefaultValues();
+            ClearButtonsActions();
+            AddButtonAction();
+        }
 
-        // 4. 결과 출력
-        resultText.text = $"Win Rate: {report.WinRate * 100:F2}%\nAvg Turns: {report.AvgTurns:F1}";
+        /// <summary>
+        /// UI 기본값 초기화
+        /// </summary>
+        private void InitializeDefaultValues()
+        {
+            if (iterationsInput) iterationsInput.text = "1000";
+            if (maxTurnsInput) maxTurnsInput.text = "100";
+            if (maxActionsPerTurnInput) maxActionsPerTurnInput.text = "1";
+            if (useCostSystemToggle) useCostSystemToggle.isOn = true;
+            if (maxCostInput) maxCostInput.text = "3";
+            if (recoveryAmountInput) recoveryAmountInput.text = "3";
+        }
+
+        private void OnRunClick()
+        {
+            RunMonteCarlo();
+        }
+
+        /// <summary>
+        /// 몬테카를로 시뮬레이션 실행
+        /// </summary>
+        public void RunMonteCarlo()
+        {
+            // 1. SimulationSettings 수집
+            var settings = new SimulationSettings
+            {
+                Iterations = int.Parse(iterationsInput.text),
+                MaxTurns = int.Parse(maxTurnsInput.text),
+                MaxActionsPerTurn = int.Parse(maxActionsPerTurnInput.text),
+                UseCostSystem = useCostSystemToggle.isOn,
+                MaxCost = int.Parse(maxCostInput.text),
+                RecoveryAmount = int.Parse(recoveryAmountInput.text)
+            };
+
+            // 2. 유닛 생성
+            var player = new DefaultUnit
+            {
+                Name = "Player",
+                MaxHp = int.Parse(playerHpInput.text),
+                CurrentHp = int.Parse(playerHpInput.text)
+            };
+            var enemy = new DefaultUnit
+            {
+                Name = "Enemy",
+                MaxHp = int.Parse(enemyHpInput.text),
+                CurrentHp = int.Parse(enemyHpInput.text)
+            };
+
+            // 3. Phase 준비
+            _simulator.ClearPhases();
+
+            var playerPhase = new ManualActionPhase("PlayerTurn", true);
+            var enemyPhase = new ManualActionPhase("EnemyTurn", false);
+
+            playerPhase.SetActions(CollectActionsFromUI(playerActionContent));
+            enemyPhase.SetActions(CollectActionsFromUI(enemyActionContent));
+
+            _simulator.AddPhase(playerPhase);
+            _simulator.AddPhase(enemyPhase);
+
+            // 4. 시뮬레이션 실행
+            MonteCarloReport report = _runner.RunSimulation(player, enemy, settings);
+
+            // 5. 결과 저장 및 표시
+            _reportHistory.Add(report);
+            DisplaySimulationResult(report);
+        }
+
+        /// <summary>
+        /// 시뮬레이션 결과 표시
+        /// </summary>
+        private void DisplaySimulationResult(MonteCarloReport report)
+        {
+            resultText.text = $"Win Rate: {report.WinRate:F2}%\nAvg Turns: {report.AvgTurns:F1}";
+        }
+
+        /// <summary>
+        /// UI에서 액션 리스트 수집
+        /// </summary>
+        private List<IBattleAction> CollectActionsFromUI(Transform content)
+        {
+            List<IBattleAction> actions = new List<IBattleAction>();
+            ActionItemUI[] items = content.GetComponentsInChildren<ActionItemUI>();
+
+            foreach (var item in items)
+            {
+                if (item.IsSelected)
+                {
+                    // 1. 기본 액션 생성
+                    IBattleAction baseAction = new GenericAction
+                    {
+                        ActionName = item.ActionName,
+                        Damage = item.ActionValue
+                    };
+
+                    // 2. 인터벌이 1보다 크면 어댑터로 감싸기
+                    int interval = item.IntervalValue;
+                    if (interval > 1)
+                    {
+                        baseAction = new IntervalActionAdapter(baseAction, interval);
+                    }
+
+                    actions.Add(baseAction);
+                }
+            }
+            return actions;
+        }
+
+        void ClearButtonsActions()
+        {
+            playerActionAddButton.onClick.RemoveAllListeners();
+            enemyActionAddButton.onClick.RemoveAllListeners();
+            runButton.onClick.RemoveAllListeners();
+        }
+
+        void AddButtonAction()
+        {
+            playerActionAddButton.onClick.AddListener(() => AddActionItem(true));
+            enemyActionAddButton.onClick.AddListener(() => AddActionItem(false));
+            runButton.onClick.AddListener(OnRunClick);
+        }
+
+        public void AddActionItem(bool isPlayer)
+        {
+            Transform parent = isPlayer ? playerActionContent : enemyActionContent;
+            Instantiate(actionItemPrefab, parent);
+        }
     }
 }

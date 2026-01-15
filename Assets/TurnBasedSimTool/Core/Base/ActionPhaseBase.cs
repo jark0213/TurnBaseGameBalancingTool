@@ -1,6 +1,8 @@
-using TurnBasedSim.Core;
+using TurnBasedSimTool.Core;
 
-public abstract class ActionPhaseBase : BattlePhaseBase 
+namespace TurnBasedSimTool.Core
+{
+    public abstract class ActionPhaseBase : BattlePhaseBase 
 {
     protected ActionPhaseBase(string name, bool isPlayer) : base(name, isPlayer) { }
 
@@ -41,4 +43,5 @@ public abstract class ActionPhaseBase : BattlePhaseBase
 
     protected abstract bool HasAvailableActions(IBattleUnit unit, BattleContext context);
     protected abstract IBattleAction GetNextAction(IBattleUnit unit, BattleContext context);
+    }
 }

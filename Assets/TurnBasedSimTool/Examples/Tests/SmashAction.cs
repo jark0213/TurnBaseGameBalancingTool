@@ -1,11 +1,19 @@
-using TurnBasedSim.Core;
+using TurnBasedSimTool.Core;
 
-public class SmashAction : IBattleAction
+namespace TurnBasedSimTool.Examples.Tests
 {
-    public string ActionName => "SmashAttck";
+    public class SmashAction : IBattleAction
+    {
+        public string ActionName => "SmashAttack";
+        public int GetCost(IBattleState state) => 0;
+        public bool CanExecute(IBattleState state) => true;
 
-    public void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context) {
-        defender.CurrentHp -= 5;
-        attacker.CurrentHp -= 1; // 반동 데미지
+        public void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context)
+        {
+            defender.CurrentHp -= 5;
+            attacker.CurrentHp -= 1; // 반동 데미지
+        }
+
+        public IBattleAction Clone() => new SmashAction();
     }
 }

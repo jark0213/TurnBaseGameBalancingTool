@@ -1,5 +1,4 @@
-// Core/Interfaces/IStatusEffect.cs
-namespace TurnBasedSim.Core {
+namespace TurnBasedSimTool.Core {
     public interface IStatusEffect {
         string EffectName { get; }
         int Duration { get; set; }

@@ -1,30 +1,32 @@
-namespace TurnBasedSim.Core 
+namespace TurnBasedSimTool.Core
 {
-    // 이걸 던전 다이스에서 연결해서 사용하려면 IEffect를 통째로 감싸서 Execute시키는 어댑터패턴을 쓰는 클래스를 하나 만들어서 쓰거나 해야할듯?
-    // 아래같은 느낌으로
-    /*
-     public class EffectActionAdapter : IBattleAction 
-     {
-        private IEffect _compiledEffect;
-
-        public EffectActionAdapter(string dsl) {
-            // 이미 있는 CompiledEffectCache와 DSLEffectParser를 활용해
-            // 시뮬레이션 시작 시 딱 한 번만 파싱해서 캐싱해둡니다.
-            _compiledEffect = CompiledEffectCache.GetOrParse(dsl);
-        }
-
-        public void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context) {
-            // 기존 던전 다이스의 로직을 그대로 clone해서 사용
-            // DeepCloner 던전다이스에서 이미 사용중이기 때문에 큰 문제는 없을거라 생각됨
-            var runEffect = EffectDeepCloner.Clone(_compiledEffect);
-            runEffect.Execute(attacker, defender);
-        }
-    }
-     */
-    public interface IBattleAction 
+    /// <summary>
+    /// 전투 행동을 나타내는 인터페이스
+    /// 외부 이펙트 시스템 연동을 위해서는 ExternalEffectAdapter를 상속받으세요
+    /// </summary>
+    public interface IBattleAction
     {
         string ActionName { get; }
-        // 실제 효과를 실행하는 메서드
+
+        /// <summary>
+        /// 코스트 시스템에서 사용할 비용 반환 (코스트 미사용 시 0 반환)
+        /// </summary>
+        int GetCost(IBattleState state);
+
+        /// <summary>
+        /// 현재 상태에서 이 액션을 실행 가능한지 체크
+        /// </summary>
+        bool CanExecute(IBattleState state);
+
+        /// <summary>
+        /// 액션 실행
+        /// </summary>
         void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context);
+
+        /// <summary>
+        /// 몬테카를로 시뮬레이션을 위한 깊은 복사
+        /// 상태를 가진 액션은 반드시 새 인스턴스를 반환해야 함
+        /// </summary>
+        IBattleAction Clone();
     }
 }

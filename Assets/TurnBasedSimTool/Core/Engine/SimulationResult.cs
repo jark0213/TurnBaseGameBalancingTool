@@ -1,4 +1,4 @@
-namespace TurnBasedSim.Core {
+namespace TurnBasedSimTool.Core {
     public struct SimulationResult {
         public bool IsPlayerWin;
         public int TotalTurns;

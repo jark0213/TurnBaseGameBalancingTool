@@ -1,15 +1,15 @@
-using System.Collections;
-using System.Collections.Generic;
-using TurnBasedSim.Core;
-using UnityEngine;
+using TurnBasedSimTool.Core;
 
-public class TestEndTurnPhase : BattlePhaseBase
+namespace TurnBasedSimTool.Examples.Tests
 {
-    public TestEndTurnPhase(string name, bool isPlayer) : base(name, isPlayer) { }
-
-    public override void Execute(IBattleUnit player, IBattleUnit enemy, BattleContext context)
+    public class TestEndTurnPhase : BattlePhaseBase
     {
-        // 시작 단계 로직 (예: 버프 감소 등)
-        // 지금은 비워두어도 에러가 나지 않도록 구현만 해둡니다.
+        public TestEndTurnPhase(string name, bool isPlayer) : base(name, isPlayer) { }
+
+        public override void Execute(IBattleUnit player, IBattleUnit enemy, BattleContext context)
+        {
+            // 종료 단계 로직 (예: 버프 감소 등)
+            // 지금은 비워두어도 에러가 나지 않도록 구현만 해둡니다.
+        }
     }
 }

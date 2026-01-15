@@ -1,7 +1,7 @@
-// Standard/Middlewares/StatusEffectMiddleware.cs
-using TurnBasedSim.Core;
+using System.Linq;
+using TurnBasedSimTool.Core;
 
-namespace TurnBasedSim.Standard {
+namespace TurnBasedSimTool.Standard {
     public class StatusEffectMiddleware : IBattleMiddleware {
         public bool OnPreExecute(IBattleUnit attacker, IBattleUnit defender, BattleContext context) {
             // 1. 공격자의 행동 전 상태 처리 (예: 기절 체크, 공격력 버프)

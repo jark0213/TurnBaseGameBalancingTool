@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using TurnBasedSim.Core;
+using TurnBasedSimTool.Core;
 
-namespace TurnBasedSim.Standard {
+namespace TurnBasedSimTool.Standard {
     public class DefaultUnit : IBattleUnit {
         public string Name { get; set; }
         public int MaxHp { get; set; }

@@ -1,4 +1,4 @@
-namespace TurnBasedSim.Core {
+namespace TurnBasedSimTool.Core {
     public interface IBattleMiddleware {
         // 미들웨어를 만들고 행동 전후로 
         

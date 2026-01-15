@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TurnBasedSim.Core {
+namespace TurnBasedSimTool.Core {
     public interface IBattleUnit {
         string Name { get; }
         int MaxHp { get; }

@@ -1,13 +1,30 @@
-using TurnBasedSim.Core;
+using TurnBasedSimTool.Core;
 
-public class GenericAction : IBattleAction
+namespace TurnBasedSimTool.Standard
 {
-    public string ActionName { get; set; } = "GenericAttack";
-    public int Damage { get; set; }
-
-    public void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context)
+    /// <summary>
+    /// 기본 데미지 액션
+    /// </summary>
+    public class GenericAction : IBattleAction
     {
-        // 원본 SimpleAttackAction의 로직과 동일하게 구현
-        defender.CurrentHp -= Damage;
+        public string ActionName { get; set; } = "GenericAttack";
+        public int Damage { get; set; }
+
+        public int GetCost(IBattleState state) => 0; // 기본은 코스트 없음
+        public bool CanExecute(IBattleState state) => true;
+
+        public void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context)
+        {
+            defender.CurrentHp -= Damage;
+        }
+
+        public IBattleAction Clone()
+        {
+            return new GenericAction
+            {
+                ActionName = this.ActionName,
+                Damage = this.Damage
+            };
+        }
     }
 }
