@@ -9,8 +9,9 @@ namespace TurnBasedSimTool.Standard
     {
         public string ActionName { get; set; } = "GenericAttack";
         public int Damage { get; set; }
+        public int Cost { get; set; } = 0; // 기본값 0 (코스트 없음)
 
-        public int GetCost(IBattleState state) => 0; // 기본은 코스트 없음
+        public int GetCost(IBattleState state) => Cost;
         public bool CanExecute(IBattleState state) => true;
 
         public void Execute(IBattleUnit attacker, IBattleUnit defender, BattleContext context)
@@ -23,7 +24,8 @@ namespace TurnBasedSimTool.Standard
             return new GenericAction
             {
                 ActionName = this.ActionName,
-                Damage = this.Damage
+                Damage = this.Damage,
+                Cost = this.Cost
             };
         }
     }

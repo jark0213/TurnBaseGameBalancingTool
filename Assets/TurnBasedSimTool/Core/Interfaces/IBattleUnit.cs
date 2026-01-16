@@ -1,16 +1,16 @@
-using System.Collections.Generic;
-
-namespace TurnBasedSimTool.Core {
-    public interface IBattleUnit {
-        string Name { get; }
-        int MaxHp { get; }
+namespace TurnBasedSimTool.Core
+{
+    /// <summary>
+    /// 최소한의 전투 유닛 인터페이스
+    /// 이름, HP, 생존 여부만 정의
+    /// 추가 기능은 구현체에서 선택적으로 추가
+    /// </summary>
+    public interface IBattleUnit
+    {
+        string Name { get; set; }
+        int MaxHp { get; set; }
         int CurrentHp { get; set; }
         bool IsDead { get; }
-        
-        // [추가] 범용 상태 리스트
-        List<IStatusEffect> StatusEffects { get; }
-        void AddStatus(IStatusEffect effect);
-        void RemoveStatus(IStatusEffect effect);
 
         IBattleUnit Clone();
     }

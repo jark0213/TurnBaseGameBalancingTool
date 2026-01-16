@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using TMPro;
 using UnityEngine.UI;
 using TurnBasedSimTool.Core;
 using TurnBasedSimTool.Standard;
@@ -9,95 +8,77 @@ namespace TurnBasedSimTool.Runtime
 {
     /// <summary>
     /// 런타임 시뮬레이션 UI 매니저
-    /// UI에서 설정된 값들을 기반으로 몬테카를로 시뮬레이션을 실행합니다
+    /// 각 패널을 조율하여 몬테카를로 시뮬레이션을 실행합니다
     /// </summary>
     public class SimUIManager : MonoBehaviour
     {
-        [Header("Player Settings")]
-        [SerializeField] TMP_InputField playerHpInput;
-        [SerializeField] TMP_InputField playerDmgInput;
-        [SerializeField] Button playerActionAddButton;
-        [SerializeField] Transform playerActionContent;
+        [Header("Panels")]
+        [SerializeField] private TeamSettingsPanel playerTeam;
+        [SerializeField] private TeamSettingsPanel enemyTeam;
+        [SerializeField] private SimulationSettingsPanel settingsPanel;
+        [SerializeField] private SimulationResultPanel resultPanel;
 
-        [Header("Enemy Settings")]
-        [SerializeField] TMP_InputField enemyHpInput;
-        [SerializeField] TMP_InputField enemyDmgInput;
-        [SerializeField] Button enemyActionAddButton;
-        [SerializeField] Transform enemyActionContent;
+        [Header("Control")]
+        [SerializeField] private Button runButton;
 
-        [Header("Simulation Settings")]
-        [SerializeField] TMP_InputField iterationsInput;
-        [SerializeField] TMP_InputField maxTurnsInput;
-        [SerializeField] TMP_InputField maxActionsPerTurnInput;
-        [SerializeField] Toggle useCostSystemToggle;
-        [SerializeField] TMP_InputField maxCostInput;
-        [SerializeField] TMP_InputField recoveryAmountInput;
-
-        [Header("UI Controls")]
-        [SerializeField] Button runButton;
-        [SerializeField] TextMeshProUGUI resultText;
-        [SerializeField] GameObject actionItemPrefab;
-
-        private List<MonteCarloReport> _reportHistory = new List<MonteCarloReport>();
         private FlexibleBattleSimulator _simulator;
         private MonteCarloRunner _runner;
+        private List<MonteCarloReport> _reportHistory = new List<MonteCarloReport>();
 
         void Start()
         {
             _simulator = new FlexibleBattleSimulator();
             _runner = new MonteCarloRunner(_simulator);
-            InitializeDefaultValues();
-            ClearButtonsActions();
-            AddButtonAction();
+
+            // Panel 간 연결
+            ConnectPanels();
+
+            if (runButton)
+            {
+                runButton.onClick.RemoveAllListeners();
+                runButton.onClick.AddListener(RunMonteCarlo);
+            }
         }
 
         /// <summary>
-        /// UI 기본값 초기화
+        /// 패널들을 서로 연결 (코스트 시스템 토글 동기화 등)
         /// </summary>
-        private void InitializeDefaultValues()
+        private void ConnectPanels()
         {
-            if (iterationsInput) iterationsInput.text = "1000";
-            if (maxTurnsInput) maxTurnsInput.text = "100";
-            if (maxActionsPerTurnInput) maxActionsPerTurnInput.text = "1";
-            if (useCostSystemToggle) useCostSystemToggle.isOn = true;
-            if (maxCostInput) maxCostInput.text = "3";
-            if (recoveryAmountInput) recoveryAmountInput.text = "3";
-        }
+            if (settingsPanel != null)
+            {
+                // Player와 Enemy 팀을 Simulation Settings와 연결
+                if (playerTeam != null)
+                    playerTeam.ConnectToSimulationSettings(settingsPanel);
 
-        private void OnRunClick()
-        {
-            RunMonteCarlo();
+                if (enemyTeam != null)
+                    enemyTeam.ConnectToSimulationSettings(settingsPanel);
+            }
         }
 
         /// <summary>
         /// 몬테카를로 시뮬레이션 실행
+        /// TODO: 팀 기반 시뮬레이션으로 확장 필요
         /// </summary>
         public void RunMonteCarlo()
         {
-            // 1. SimulationSettings 수집
-            var settings = new SimulationSettings
-            {
-                Iterations = int.Parse(iterationsInput.text),
-                MaxTurns = int.Parse(maxTurnsInput.text),
-                MaxActionsPerTurn = int.Parse(maxActionsPerTurnInput.text),
-                UseCostSystem = useCostSystemToggle.isOn,
-                MaxCost = int.Parse(maxCostInput.text),
-                RecoveryAmount = int.Parse(recoveryAmountInput.text)
-            };
+            // 1. 패널로부터 설정 수집
+            var settings = settingsPanel.GetSettings();
 
-            // 2. 유닛 생성
-            var player = new DefaultUnit
+            // 2. 팀 생성
+            List<IBattleUnit> playerUnits = playerTeam.CreateTeam();
+            List<IBattleUnit> enemyUnits = enemyTeam.CreateTeam();
+
+            // 임시: 1v1 호환을 위해 첫 번째 캐릭터만 사용
+            // TODO: NvM 지원으로 확장
+            var player = playerUnits.Count > 0 ? playerUnits[0] : null;
+            var enemy = enemyUnits.Count > 0 ? enemyUnits[0] : null;
+
+            if (player == null || enemy == null)
             {
-                Name = "Player",
-                MaxHp = int.Parse(playerHpInput.text),
-                CurrentHp = int.Parse(playerHpInput.text)
-            };
-            var enemy = new DefaultUnit
-            {
-                Name = "Enemy",
-                MaxHp = int.Parse(enemyHpInput.text),
-                CurrentHp = int.Parse(enemyHpInput.text)
-            };
+                Debug.LogError("Player or Enemy team is empty!");
+                return;
+            }
 
             // 3. Phase 준비
             _simulator.ClearPhases();
@@ -105,8 +86,14 @@ namespace TurnBasedSimTool.Runtime
             var playerPhase = new ManualActionPhase("PlayerTurn", true);
             var enemyPhase = new ManualActionPhase("EnemyTurn", false);
 
-            playerPhase.SetActions(CollectActionsFromUI(playerActionContent));
-            enemyPhase.SetActions(CollectActionsFromUI(enemyActionContent));
+            // 첫 번째 캐릭터의 액션 수집
+            var playerActions = playerTeam.CollectAllActions();
+            var enemyActions = enemyTeam.CollectAllActions();
+
+            if (playerActions.ContainsKey(player))
+                playerPhase.SetActions(playerActions[player]);
+            if (enemyActions.ContainsKey(enemy))
+                enemyPhase.SetActions(enemyActions[enemy]);
 
             _simulator.AddPhase(playerPhase);
             _simulator.AddPhase(enemyPhase);
@@ -116,67 +103,9 @@ namespace TurnBasedSimTool.Runtime
 
             // 5. 결과 저장 및 표시
             _reportHistory.Add(report);
-            DisplaySimulationResult(report);
-        }
+            resultPanel.DisplayResult(report);
 
-        /// <summary>
-        /// 시뮬레이션 결과 표시
-        /// </summary>
-        private void DisplaySimulationResult(MonteCarloReport report)
-        {
-            resultText.text = $"Win Rate: {report.WinRate:F2}%\nAvg Turns: {report.AvgTurns:F1}";
-        }
-
-        /// <summary>
-        /// UI에서 액션 리스트 수집
-        /// </summary>
-        private List<IBattleAction> CollectActionsFromUI(Transform content)
-        {
-            List<IBattleAction> actions = new List<IBattleAction>();
-            ActionItemUI[] items = content.GetComponentsInChildren<ActionItemUI>();
-
-            foreach (var item in items)
-            {
-                if (item.IsSelected)
-                {
-                    // 1. 기본 액션 생성
-                    IBattleAction baseAction = new GenericAction
-                    {
-                        ActionName = item.ActionName,
-                        Damage = item.ActionValue
-                    };
-
-                    // 2. 인터벌이 1보다 크면 어댑터로 감싸기
-                    int interval = item.IntervalValue;
-                    if (interval > 1)
-                    {
-                        baseAction = new IntervalActionAdapter(baseAction, interval);
-                    }
-
-                    actions.Add(baseAction);
-                }
-            }
-            return actions;
-        }
-
-        void ClearButtonsActions()
-        {
-            playerActionAddButton.onClick.RemoveAllListeners();
-            enemyActionAddButton.onClick.RemoveAllListeners();
-            runButton.onClick.RemoveAllListeners();
-        }
-
-        void AddButtonAction()
-        {
-            playerActionAddButton.onClick.AddListener(() => AddActionItem(true));
-            enemyActionAddButton.onClick.AddListener(() => AddActionItem(false));
-            runButton.onClick.AddListener(OnRunClick);
-        }
-
-        public void AddActionItem(bool isPlayer)
-        {
-            Transform parent = isPlayer ? playerActionContent : enemyActionContent;
-            Instantiate(actionItemPrefab, parent);
+            Debug.Log($"Simulation completed: {report.WinRate:F1}% Player Win Rate");
         }
     }
 }
