@@ -70,19 +70,68 @@ namespace TurnBasedSimTool.Core {
     }
 
     /// <summary>
-    /// 몬테카를로 시뮬레이션 결과 통계
+    /// 팀별 상세 통계
+    /// </summary>
+    public struct TeamStatistics {
+        public float AvgSurvivors;          // 평균 생존자 수
+        public float AvgRemainingHp;        // 평균 잔여 HP
+        public float AvgHpPercentage;       // 평균 HP 비율 (%)
+        public int MaxSurvivors;            // 최대 생존자 수
+        public int MinSurvivors;            // 최소 생존자 수
+
+        public TeamStatistics(List<SimulationResult> results, bool isPlayerTeam) {
+            if (results == null || results.Count == 0) {
+                AvgSurvivors = 0;
+                AvgRemainingHp = 0;
+                AvgHpPercentage = 0;
+                MaxSurvivors = 0;
+                MinSurvivors = 0;
+                return;
+            }
+
+            var teamStates = isPlayerTeam
+                ? results.Select(r => r.PlayerTeamState).ToList()
+                : results.Select(r => r.EnemyTeamState).ToList();
+
+            AvgSurvivors = (float)teamStates.Average(s => s.SurvivorCount);
+            AvgRemainingHp = (float)teamStates.Average(s => s.TotalRemainingHp);
+
+            // HP 비율 계산 (TotalMaxHp가 0인 경우 방지)
+            var hpPercentages = teamStates
+                .Where(s => s.TotalMaxHp > 0)
+                .Select(s => (float)s.TotalRemainingHp / s.TotalMaxHp * 100f);
+            AvgHpPercentage = hpPercentages.Any() ? hpPercentages.Average() : 0f;
+
+            MaxSurvivors = teamStates.Max(s => s.SurvivorCount);
+            MinSurvivors = teamStates.Min(s => s.SurvivorCount);
+        }
+    }
+
+    /// <summary>
+    /// 몬테카를로 시뮬레이션 결과 통계 (NvM 지원)
     /// </summary>
     public struct MonteCarloReport {
+        // 기본 통계
         public int TotalCount;
         public int WinCount;
+        public int LoseCount;
         public float WinRate;
         public float AvgTurns;
+
+        // 팀별 상세 통계
+        public TeamStatistics PlayerStats;
+        public TeamStatistics EnemyStats;
 
         public MonteCarloReport(List<SimulationResult> results) {
             TotalCount = results.Count;
             WinCount = results.Count(r => r.IsPlayerWin);
+            LoseCount = TotalCount - WinCount;
             WinRate = (float)WinCount / TotalCount * 100f;
             AvgTurns = (float)results.Average(r => r.TotalTurns);
+
+            // 팀별 통계 생성
+            PlayerStats = new TeamStatistics(results, true);
+            EnemyStats = new TeamStatistics(results, false);
         }
     }
 }

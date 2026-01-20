@@ -59,9 +59,12 @@ namespace TurnBasedSimTool.Core
             // 승패 결정
             context.PlayerWon = !pTeam.IsDefeated();
 
-            // 결과 생성 (플레이어 팀의 총 HP 합산)
-            int totalPlayerHp = pTeam.Units.Sum(u => u.CurrentHp);
-            return new SimulationResult(context.PlayerWon, context.CurrentTurn, totalPlayerHp, context.ResultMessage);
+            // 팀 상태 생성
+            var playerState = TeamEndState.FromBattleTeam(pTeam);
+            var enemyState = TeamEndState.FromBattleTeam(eTeam);
+
+            // 결과 생성 (팀 기반)
+            return new SimulationResult(context.PlayerWon, context.CurrentTurn, playerState, enemyState, context.ResultMessage);
         }
 
         /// <summary>
