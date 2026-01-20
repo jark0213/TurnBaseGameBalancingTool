@@ -115,10 +115,44 @@ namespace TurnBasedSimTool.Runtime
                 Debug.Log($"  - Unit[{i}] '{enemyBattleTeam.Units[i].Name}' (HP:{enemyBattleTeam.Units[i].MaxHp}): {actionCount} actions");
             }
 
-            // 4. Phase 준비 (액션은 BattleTeam에 포함되어 있음)
+            // 4. Phase 준비 (Speed 시스템 ON/OFF에 따라 분기)
             _simulator.ClearPhases();
-            _simulator.AddPhase(new TeamActionPhase("PlayerTurn", true, new RandomTargeting()));
-            _simulator.AddPhase(new TeamActionPhase("EnemyTurn", false, new RandomTargeting()));
+            
+            if (settings.UseSpeedSystem)
+            {
+                // Speed 기반: 모든 유닛을 Speed 순으로 정렬하여 행동
+                Debug.Log("[Setup] Using Speed-based combat system");
+                _simulator.AddPhase(new SpeedBasedCombatPhase("SpeedBasedCombat", new RandomTargeting(), settings));
+            }
+            else
+            {
+                // 팀 기반: Player → Enemy 순서 (또는 FirstTurn 옵션에 따라)
+                Debug.Log($"[Setup] Using Team-based combat system (FirstTurn: {settings.FirstTurn})");
+                
+                if (settings.FirstTurn == FirstTurnOption.PlayerFirst)
+                {
+                    _simulator.AddPhase(new TeamActionPhase("PlayerTurn", true, new RandomTargeting()));
+                    _simulator.AddPhase(new TeamActionPhase("EnemyTurn", false, new RandomTargeting()));
+                }
+                else if (settings.FirstTurn == FirstTurnOption.EnemyFirst)
+                {
+                    _simulator.AddPhase(new TeamActionPhase("EnemyTurn", false, new RandomTargeting()));
+                    _simulator.AddPhase(new TeamActionPhase("PlayerTurn", true, new RandomTargeting()));
+                }
+                else // Random
+                {
+                    if (Random.Range(0, 2) == 0)
+                    {
+                        _simulator.AddPhase(new TeamActionPhase("PlayerTurn", true, new RandomTargeting()));
+                        _simulator.AddPhase(new TeamActionPhase("EnemyTurn", false, new RandomTargeting()));
+                    }
+                    else
+                    {
+                        _simulator.AddPhase(new TeamActionPhase("EnemyTurn", false, new RandomTargeting()));
+                        _simulator.AddPhase(new TeamActionPhase("PlayerTurn", true, new RandomTargeting()));
+                    }
+                }
+            }
 
             // 4. NvM 시뮬레이션 실행
             Debug.Log($"[Simulation] Starting {settings.Iterations} iterations...");

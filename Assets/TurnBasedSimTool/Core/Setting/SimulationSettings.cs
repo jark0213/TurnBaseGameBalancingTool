@@ -17,6 +17,11 @@ namespace TurnBasedSimTool.Core
         public int RecoveryAmount = 3;          // 턴 시작 시 회복량
         public bool UseSpeedSystem = false;     // 속도 기반 턴 순서 사용 여부
         public FirstTurnOption FirstTurn = FirstTurnOption.PlayerFirst; // 선공권 (Speed OFF 시)
+        
+        // Speed 타이브레이크 (Speed 동점 시 순서 결정)
+        public SpeedTiebreakOption SpeedTiebreak = SpeedTiebreakOption.Random;
+        public TiebreakStatOption TiebreakStat = TiebreakStatOption.Defense;
+        public string CustomTiebreakStatName = ""; // TiebreakStat이 Custom일 때 사용
 
         // JSON 직렬화
         public string ToJson() => JsonUtility.ToJson(this, true);

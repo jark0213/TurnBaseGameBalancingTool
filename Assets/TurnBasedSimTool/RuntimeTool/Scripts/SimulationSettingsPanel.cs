@@ -23,6 +23,9 @@ namespace TurnBasedSimTool.Runtime
 
         [Header("Speed System")]
         [SerializeField] private Toggle useSpeedSystemToggle;
+        [SerializeField] private TMP_Dropdown speedTiebreakDropdown;    // Speed 동점 시 처리
+        [SerializeField] private TMP_Dropdown tiebreakStatDropdown;     // 타이브레이크 스탯 선택
+        [SerializeField] private TMP_InputField customStatNameInput;    // 커스텀 스탯 이름
 
         [Header("Turn Order (when Speed OFF)")]
         [SerializeField] private TMP_Dropdown firstTurnDropdown;
@@ -35,6 +38,9 @@ namespace TurnBasedSimTool.Runtime
         private GameObject maxCostInputParent;
         private GameObject recoveryAmountInputParent;
         private GameObject firstTurnDropdownParent;
+        private GameObject speedTiebreakDropdownParent;
+        private GameObject tiebreakStatDropdownParent;
+        private GameObject customStatNameInputParent;
 
         private void Awake()
         {
@@ -47,6 +53,15 @@ namespace TurnBasedSimTool.Runtime
 
             if (firstTurnDropdown != null)
                 firstTurnDropdownParent = firstTurnDropdown.transform.parent.gameObject;
+
+            if (speedTiebreakDropdown != null)
+                speedTiebreakDropdownParent = speedTiebreakDropdown.transform.parent.gameObject;
+
+            if (tiebreakStatDropdown != null)
+                tiebreakStatDropdownParent = tiebreakStatDropdown.transform.parent.gameObject;
+
+            if (customStatNameInput != null)
+                customStatNameInputParent = customStatNameInput.transform.parent.gameObject;
         }
 
         private void Start()
@@ -67,6 +82,26 @@ namespace TurnBasedSimTool.Runtime
                 useSpeedSystemToggle.onValueChanged.AddListener(OnSpeedToggleChanged);
                 // 초기 상태 전파
                 OnSpeedToggleChanged(useSpeedSystemToggle.isOn);
+            }
+
+            // 타이브레이크 드롭다운 변경 시
+            if (speedTiebreakDropdown != null)
+            {
+                speedTiebreakDropdown.onValueChanged.AddListener(OnTiebreakMethodChanged);
+                OnTiebreakMethodChanged(speedTiebreakDropdown.value);
+            }
+
+            // 타이브레이크 스탯 드롭다운 변경 시
+            if (tiebreakStatDropdown != null)
+            {
+                tiebreakStatDropdown.onValueChanged.AddListener(OnTiebreakStatChanged);
+                OnTiebreakStatChanged(tiebreakStatDropdown.value);
+            }
+
+            // 커스텀 스탯 이름 입력 완료 시 검증
+            if (customStatNameInput != null)
+            {
+                customStatNameInput.onEndEdit.AddListener(ValidateCustomStatName);
             }
         }
 
@@ -89,8 +124,152 @@ namespace TurnBasedSimTool.Runtime
             if (firstTurnDropdownParent != null)
                 firstTurnDropdownParent.SetActive(!isOn);
 
+            // Tiebreak dropdown은 Speed가 ON일 때만 표시
+            if (speedTiebreakDropdownParent != null)
+                speedTiebreakDropdownParent.SetActive(isOn);
+
             // 외부(UnitSettingsPanel)에 이벤트 전파
             OnSpeedSystemChanged?.Invoke(isOn);
+        }
+
+        private void OnTiebreakMethodChanged(int value)
+        {
+            SpeedTiebreakOption option = (SpeedTiebreakOption)value;
+            
+            // UseStat 선택 시만 tiebreakStatDropdown 표시
+            bool showStatDropdown = (option == SpeedTiebreakOption.UseStat);
+            if (tiebreakStatDropdownParent != null)
+                tiebreakStatDropdownParent.SetActive(showStatDropdown);
+
+            // UseStat 아니면 customStatNameInput도 숨김 (Parent 끄기)
+            if (!showStatDropdown && customStatNameInputParent != null)
+                customStatNameInputParent.SetActive(false);
+        }
+
+        private void OnTiebreakStatChanged(int value)
+        {
+            TiebreakStatOption option = (TiebreakStatOption)value;
+            
+            // Custom 선택 시만 customStatNameInput 표시 (Parent 켜기)
+            bool showCustomInput = (option == TiebreakStatOption.Custom);
+            if (customStatNameInputParent != null)
+            {
+                customStatNameInputParent.SetActive(showCustomInput);
+                
+                // Custom 아니면 InputField 색상 리셋
+                if (!showCustomInput && customStatNameInput != null)
+                {
+                    ResetInputFieldColors(customStatNameInput);
+                }
+            }
+        }
+
+        private void ValidateCustomStatName(string statName)
+        {
+            if (customStatNameInput == null) return;
+
+            // 비어있으면 경고 (오렌지)
+            if (string.IsNullOrEmpty(statName))
+            {
+                SetInputFieldColors(customStatNameInput, new Color(1f, 0.5f, 0f)); // 오렌지 텍스트
+                return;
+            }
+
+            // 스탯 존재 여부 확인
+            bool isValid = IsValidStatName(statName);
+
+            if (isValid)
+            {
+                // 초록색 (유효)
+                SetInputFieldColors(customStatNameInput, Color.green);
+            }
+            else
+            {
+                // 빨간색 (오류)
+                SetInputFieldColors(customStatNameInput, Color.red);
+            }
+        }
+
+        private bool IsValidStatName(string statName)
+        {
+            // DefaultUnit의 기본 속성들
+            string[] validStats = { "Defense", "Evasion", "CritRate", "CritMultiplier", "Speed", "MaxHp", "CurrentHp" };
+            
+            foreach (var validStat in validStats)
+            {
+                if (statName.Equals(validStat, System.StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            // CustomData는 나중에 실제 유닛 검증 필요
+            // 지금은 일단 경고만 표시
+            return false;
+        }
+
+        /// <summary>
+        /// InputField의 텍스트 색상과 테두리 색상 변경
+        /// </summary>
+        private void SetInputFieldColors(TMP_InputField inputField, Color color)
+        {
+            if (inputField == null) return;
+
+            // 1. 입력 텍스트 색상 변경
+            if (inputField.textComponent != null)
+            {
+                inputField.textComponent.color = color;
+            }
+
+            // 2. 테두리(배경) 색상 변경
+            var image = inputField.GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                // 약간 투명한 색상으로 테두리 표시
+                image.color = new Color(color.r, color.g, color.b, 0.3f);
+            }
+        }
+
+        /// <summary>
+        /// InputField 색상 리셋 (기본 상태로)
+        /// </summary>
+        private void ResetInputFieldColors(TMP_InputField inputField)
+        {
+            if (inputField == null) return;
+
+            // 텍스트 색상 리셋
+            if (inputField.textComponent != null)
+            {
+                inputField.textComponent.color = Color.white; // 기본 흰색
+            }
+
+            // 테두리 색상 리셋
+            var image = inputField.GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                image.color = new Color(1f, 1f, 1f, 0.1f); // 기본 반투명 흰색
+            }
+        }
+
+        /// <summary>
+        /// TiebreakStatOption의 표시 라벨 가져오기
+        /// TODO: Localization 적용 시 수정
+        /// </summary>
+        private string GetTiebreakStatLabel(TiebreakStatOption stat)
+        {
+            switch (stat)
+            {
+                case TiebreakStatOption.Defense:
+                    return "방어력";
+                case TiebreakStatOption.Evasion:
+                    return "회피율";
+                case TiebreakStatOption.CritRate:
+                    return "치명타율";
+                case TiebreakStatOption.Speed:
+                    return "속도";
+                case TiebreakStatOption.Custom:
+                    return "커스텀";
+                default:
+                    return stat.ToString();
+            }
         }
 
         /// <summary>
@@ -118,6 +297,43 @@ namespace TurnBasedSimTool.Runtime
                 });
                 firstTurnDropdown.value = 0; // Player First 기본
             }
+
+            // Speed Tiebreak Dropdown 초기화
+            if (speedTiebreakDropdown)
+            {
+                speedTiebreakDropdown.ClearOptions();
+                speedTiebreakDropdown.AddOptions(new System.Collections.Generic.List<string>
+                {
+                    "Random",
+                    "Player First",
+                    "Enemy First",
+                    "Use Stat"
+                });
+                speedTiebreakDropdown.value = 0; // Random 기본
+            }
+
+            // Tiebreak Stat Dropdown 초기화 (Enum에서 자동 생성)
+            if (tiebreakStatDropdown)
+            {
+                tiebreakStatDropdown.ClearOptions();
+                
+                // Enum의 모든 값에 대해 라벨 생성
+                var labels = new System.Collections.Generic.List<string>();
+                foreach (TiebreakStatOption stat in System.Enum.GetValues(typeof(TiebreakStatOption)))
+                {
+                    labels.Add(GetTiebreakStatLabel(stat));
+                }
+                
+                tiebreakStatDropdown.AddOptions(labels);
+                tiebreakStatDropdown.value = 0; // Defense 기본
+            }
+
+            // 초기 상태: tiebreakStatDropdown과 customStatNameInput 숨김
+            if (tiebreakStatDropdownParent != null)
+                tiebreakStatDropdownParent.SetActive(false);
+            
+            if (customStatNameInputParent != null)
+                customStatNameInputParent.SetActive(false);
         }
 
         /// <summary>
@@ -155,6 +371,16 @@ namespace TurnBasedSimTool.Runtime
             if (firstTurnDropdown)
                 settings.FirstTurn = (FirstTurnOption)firstTurnDropdown.value;
 
+            // Speed Tiebreak (Speed ON 시)
+            if (speedTiebreakDropdown)
+                settings.SpeedTiebreak = (SpeedTiebreakOption)speedTiebreakDropdown.value;
+
+            if (tiebreakStatDropdown)
+                settings.TiebreakStat = (TiebreakStatOption)tiebreakStatDropdown.value;
+
+            if (customStatNameInput)
+                settings.CustomTiebreakStatName = customStatNameInput.text;
+
             return settings;
         }
 
@@ -171,6 +397,9 @@ namespace TurnBasedSimTool.Runtime
             if (recoveryAmountInput) recoveryAmountInput.text = settings.RecoveryAmount.ToString();
             if (useSpeedSystemToggle) useSpeedSystemToggle.isOn = settings.UseSpeedSystem;
             if (firstTurnDropdown) firstTurnDropdown.value = (int)settings.FirstTurn;
+            if (speedTiebreakDropdown) speedTiebreakDropdown.value = (int)settings.SpeedTiebreak;
+            if (tiebreakStatDropdown) tiebreakStatDropdown.value = (int)settings.TiebreakStat;
+            if (customStatNameInput) customStatNameInput.text = settings.CustomTiebreakStatName;
         }
     }
 }
