@@ -16,9 +16,9 @@ namespace TurnBasedSimTool.Runtime
     {
         [Header("Character Info")]
         [SerializeField] private TMP_InputField characterNameInput;
-        [SerializeField] private Toggle foldoutToggle;
+        // foldoutToggle은 FoldoutContentController가 관리 (삭제됨)
         [SerializeField] private Button deleteButton;
-        [SerializeField] private GameObject contentArea; // 접었다 펼 영역
+        [SerializeField] private GameObject contentArea; // FoldoutContentController에서 참조
 
         public event System.Action<CharacterSettingsPanel> OnDeleteRequested;
         [Header("Basic Stats")]
@@ -39,6 +39,9 @@ namespace TurnBasedSimTool.Runtime
         [Header("Scroll Control (Optional)")]
         [SerializeField] private AutoScrollController actionScrollController;
 
+        // 현재 설정 상태 캐시
+        private SimulationSettingsPanel _connectedSimPanel;
+
         private void Start()
         {
             // Add Action 버튼
@@ -55,13 +58,8 @@ namespace TurnBasedSimTool.Runtime
                 deleteButton.onClick.AddListener(() => OnDeleteRequested?.Invoke(this));
             }
 
-            // Foldout 토글
-            if (foldoutToggle)
-            {
-                foldoutToggle.onValueChanged.RemoveAllListeners();
-                foldoutToggle.onValueChanged.AddListener(OnFoldoutToggled);
-                foldoutToggle.isOn = true; // 기본 펼침
-            }
+            // Foldout 토글은 FoldoutContentController가 처리
+            // foldoutToggle.isOn은 Inspector에서 설정 (기본 true)
 
             // 기본값 설정
             if (characterNameInput && string.IsNullOrEmpty(characterNameInput.text))
@@ -80,16 +78,7 @@ namespace TurnBasedSimTool.Runtime
                 speedInput.text = "10";
         }
 
-        /// <summary>
-        /// Foldout 토글 시 Content 영역 접기/펼치기
-        /// </summary>
-        private void OnFoldoutToggled(bool isExpanded)
-        {
-            if (contentArea != null)
-            {
-                contentArea.SetActive(isExpanded);
-            }
-        }
+        // OnFoldoutToggled 메서드 제거됨 (FoldoutContentController가 처리)
 
         /// <summary>
         /// SimulationSettingsPanel과 연결하여 코스트/스피드 시스템 토글 동기화
@@ -98,6 +87,7 @@ namespace TurnBasedSimTool.Runtime
         {
             if (simPanel != null)
             {
+                _connectedSimPanel = simPanel;
                 simPanel.OnCostSystemChanged += SetCostFieldsActive;
                 simPanel.OnSpeedSystemChanged += SetSpeedFieldActive;
             }
@@ -231,7 +221,18 @@ namespace TurnBasedSimTool.Runtime
         {
             if (actionItemPrefab && actionListContent)
             {
-                Instantiate(actionItemPrefab, actionListContent);
+                GameObject newItem = Instantiate(actionItemPrefab, actionListContent);
+
+                // 새로 추가된 ActionItem에 현재 코스트 시스템 상태 적용
+                if (_connectedSimPanel != null)
+                {
+                    ActionItemUI itemUI = newItem.GetComponent<ActionItemUI>();
+                    if (itemUI != null)
+                    {
+                        bool costSystemEnabled = _connectedSimPanel.GetSettings().UseCostSystem;
+                        itemUI.SetCostFieldActive(costSystemEnabled);
+                    }
+                }
 
                 // 스크롤 상태 업데이트
                 if (actionScrollController != null)

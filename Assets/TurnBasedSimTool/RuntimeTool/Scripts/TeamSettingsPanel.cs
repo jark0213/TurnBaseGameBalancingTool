@@ -14,8 +14,6 @@ namespace TurnBasedSimTool.Runtime
     {
         [Header("Team Info")]
         [SerializeField] private string teamName = "Team";
-        [SerializeField] private Toggle teamFoldoutToggle;
-        [SerializeField] private GameObject teamContentArea;
 
         [Header("Character Management")]
         [SerializeField] private Button addCharacterButton;
@@ -38,13 +36,8 @@ namespace TurnBasedSimTool.Runtime
                 addCharacterButton.onClick.AddListener(AddCharacter);
             }
 
-            // Team Foldout 토글
-            if (teamFoldoutToggle)
-            {
-                teamFoldoutToggle.onValueChanged.RemoveAllListeners();
-                teamFoldoutToggle.onValueChanged.AddListener(OnTeamFoldoutToggled);
-                teamFoldoutToggle.isOn = true; // 기본 펼침
-            }
+            // Team Foldout 토글은 FoldoutContentController가 처리
+            // teamFoldoutToggle.isOn은 Inspector에서 설정 (기본 true)
 
             // Defeat Condition Dropdown 초기화
             if (defeatConditionDropdown)
@@ -72,16 +65,7 @@ namespace TurnBasedSimTool.Runtime
             }
         }
 
-        /// <summary>
-        /// Team Foldout 토글
-        /// </summary>
-        private void OnTeamFoldoutToggled(bool isExpanded)
-        {
-            if (teamContentArea != null)
-            {
-                teamContentArea.SetActive(isExpanded);
-            }
-        }
+        // OnTeamFoldoutToggled 메서드 제거됨 (FoldoutContentController가 처리)
 
         /// <summary>
         /// Defeat Condition 변경 시 Main Character Selector 표시/숨김
@@ -249,17 +233,17 @@ namespace TurnBasedSimTool.Runtime
         }
 
         /// <summary>
-        /// 팀의 모든 액션 수집
+        /// 팀의 모든 액션 수집 (유닛 객체와 매핑)
         /// </summary>
-        public Dictionary<IBattleUnit, List<IBattleAction>> CollectAllActions()
+        /// <param name="units">CreateBattleTeam()으로 생성된 유닛 리스트</param>
+        public Dictionary<IBattleUnit, List<IBattleAction>> CollectAllActions(List<IBattleUnit> units)
         {
             var actionMap = new Dictionary<IBattleUnit, List<IBattleAction>>();
-            List<IBattleUnit> team = CreateTeam();
 
-            for (int i = 0; i < characters.Count && i < team.Count; i++)
+            for (int i = 0; i < characters.Count && i < units.Count; i++)
             {
                 List<IBattleAction> actions = characters[i].CollectActions();
-                actionMap[team[i]] = actions;
+                actionMap[units[i]] = actions;
             }
 
             return actionMap;
@@ -291,14 +275,33 @@ namespace TurnBasedSimTool.Runtime
             // 기본값: 첫 번째 캐릭터
             return 0;
         }
+
+        /// <summary>
+        /// UI 입력을 BattleTeam 데이터로 변환
+        /// 시뮬레이터에 전달하기 위한 팀 데이터 생성
+        /// </summary>
+        public BattleTeam CreateBattleTeam()
+        {
+            var team = new BattleTeam();
+
+            // 1. 유닛 생성
+            team.Units = CreateTeam();
+
+            // 2. 패배 조건 설정
+            team.DefeatCondition = GetDefeatCondition();
+
+            // 3. 메인 캐릭터 설정 (주캐 사망 조건일 때만)
+            if (team.DefeatCondition == DefeatCondition.MainCharacterDead)
+            {
+                team.MainCharacterIndex = GetMainCharacterIndex();
+            }
+            else
+            {
+                team.MainCharacterIndex = -1; // 전멸 조건에서는 사용 안 함
+            }
+
+            return team;
+        }
     }
 
-    /// <summary>
-    /// 패배 조건
-    /// </summary>
-    public enum DefeatCondition
-    {
-        AllDead = 0,            // 전멸
-        MainCharacterDead = 1   // 주요 캐릭터 사망
-    }
 }

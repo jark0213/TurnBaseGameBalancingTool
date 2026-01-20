@@ -15,7 +15,34 @@ namespace TurnBasedSimTool.Core {
         }
 
         /// <summary>
-        /// 시뮬레이션 실행 (SimulationSettings 기반)
+        /// NvM 팀 시뮬레이션 실행
+        /// </summary>
+        public MonteCarloReport RunTeamSimulation(BattleTeam playerTeam, BattleTeam enemyTeam, SimulationSettings settings) {
+            List<SimulationResult> results = new List<SimulationResult>(settings.Iterations);
+
+            for (int i = 0; i < settings.Iterations; i++) {
+                // 매 판마다 독립적인 컨텍스트 생성 (데이터 오염 방지)
+                var context = new BattleContext {
+                    CurrentTurn = 0,
+                    IsFinished = false,
+                    UseCostSystem = settings.UseCostSystem,
+                    MaxActionsPerTurn = settings.MaxActionsPerTurn,
+                    Cost = new CostHandler {
+                        MaxCost = settings.MaxCost,
+                        RecoveryAmount = settings.RecoveryAmount
+                    }
+                };
+
+                // 팀 시뮬레이터 실행
+                var result = _simulator.RunTeamBattle(playerTeam, enemyTeam, context, settings.MaxTurns);
+                results.Add(result);
+            }
+
+            return new MonteCarloReport(results);
+        }
+
+        /// <summary>
+        /// 1v1 시뮬레이션 실행 (하위 호환성)
         /// </summary>
         public MonteCarloReport RunSimulation(IBattleUnit player, IBattleUnit enemy, SimulationSettings settings) {
             List<SimulationResult> results = new List<SimulationResult>(settings.Iterations);

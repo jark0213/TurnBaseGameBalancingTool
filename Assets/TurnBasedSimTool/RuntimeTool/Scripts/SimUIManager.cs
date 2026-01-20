@@ -57,55 +57,78 @@ namespace TurnBasedSimTool.Runtime
         }
 
         /// <summary>
-        /// 몬테카를로 시뮬레이션 실행
-        /// TODO: 팀 기반 시뮬레이션으로 확장 필요
+        /// 몬테카를로 시뮬레이션 실행 (NvM 지원)
         /// </summary>
         public void RunMonteCarlo()
         {
             // 1. 패널로부터 설정 수집
             var settings = settingsPanel.GetSettings();
 
-            // 2. 팀 생성
-            List<IBattleUnit> playerUnits = playerTeam.CreateTeam();
-            List<IBattleUnit> enemyUnits = enemyTeam.CreateTeam();
+            // 2. 팀 데이터 생성 (UI → Core 변환)
+            BattleTeam playerBattleTeam = playerTeam.CreateBattleTeam();
+            BattleTeam enemyBattleTeam = enemyTeam.CreateBattleTeam();
 
-            // 임시: 1v1 호환을 위해 첫 번째 캐릭터만 사용
-            // TODO: NvM 지원으로 확장
-            var player = playerUnits.Count > 0 ? playerUnits[0] : null;
-            var enemy = enemyUnits.Count > 0 ? enemyUnits[0] : null;
-
-            if (player == null || enemy == null)
+            // 검증 및 디버그
+            Debug.Log($"[Setup] Player Team: {playerBattleTeam.Units?.Count ?? 0} units");
+            if (playerBattleTeam.Units == null || playerBattleTeam.Units.Count == 0)
             {
-                Debug.LogError("Player or Enemy team is empty!");
+                Debug.LogError("Player team is empty!");
                 return;
             }
 
-            // 3. Phase 준비
+            Debug.Log($"[Setup] Enemy Team: {enemyBattleTeam.Units?.Count ?? 0} units");
+            if (enemyBattleTeam.Units == null || enemyBattleTeam.Units.Count == 0)
+            {
+                Debug.LogError("Enemy team is empty!");
+                return;
+            }
+
+            // 3. 액션 수집 (같은 유닛 객체를 인자로 전달)
+            var playerActions = playerTeam.CollectAllActions(playerBattleTeam.Units);
+            var enemyActions = enemyTeam.CollectAllActions(enemyBattleTeam.Units);
+
+            // BattleTeam에 액션 설정 (인덱스 기반)
+            playerBattleTeam.ActionsPerUnit = new List<List<IBattleAction>>();
+            foreach (var kvp in playerActions)
+            {
+                playerBattleTeam.ActionsPerUnit.Add(kvp.Value);
+            }
+
+            enemyBattleTeam.ActionsPerUnit = new List<List<IBattleAction>>();
+            foreach (var kvp in enemyActions)
+            {
+                enemyBattleTeam.ActionsPerUnit.Add(kvp.Value);
+            }
+
+            // 디버그 로그
+            Debug.Log($"[Setup] Player Actions: {playerBattleTeam.ActionsPerUnit.Count} units with actions");
+            for (int i = 0; i < playerBattleTeam.Units.Count; i++)
+            {
+                int actionCount = i < playerBattleTeam.ActionsPerUnit.Count ? playerBattleTeam.ActionsPerUnit[i].Count : 0;
+                Debug.Log($"  - Unit[{i}] '{playerBattleTeam.Units[i].Name}' (HP:{playerBattleTeam.Units[i].MaxHp}): {actionCount} actions");
+            }
+
+            Debug.Log($"[Setup] Enemy Actions: {enemyBattleTeam.ActionsPerUnit.Count} units with actions");
+            for (int i = 0; i < enemyBattleTeam.Units.Count; i++)
+            {
+                int actionCount = i < enemyBattleTeam.ActionsPerUnit.Count ? enemyBattleTeam.ActionsPerUnit[i].Count : 0;
+                Debug.Log($"  - Unit[{i}] '{enemyBattleTeam.Units[i].Name}' (HP:{enemyBattleTeam.Units[i].MaxHp}): {actionCount} actions");
+            }
+
+            // 4. Phase 준비 (액션은 BattleTeam에 포함되어 있음)
             _simulator.ClearPhases();
+            _simulator.AddPhase(new TeamActionPhase("PlayerTurn", true, new RandomTargeting()));
+            _simulator.AddPhase(new TeamActionPhase("EnemyTurn", false, new RandomTargeting()));
 
-            var playerPhase = new ManualActionPhase("PlayerTurn", true);
-            var enemyPhase = new ManualActionPhase("EnemyTurn", false);
-
-            // 첫 번째 캐릭터의 액션 수집
-            var playerActions = playerTeam.CollectAllActions();
-            var enemyActions = enemyTeam.CollectAllActions();
-
-            if (playerActions.ContainsKey(player))
-                playerPhase.SetActions(playerActions[player]);
-            if (enemyActions.ContainsKey(enemy))
-                enemyPhase.SetActions(enemyActions[enemy]);
-
-            _simulator.AddPhase(playerPhase);
-            _simulator.AddPhase(enemyPhase);
-
-            // 4. 시뮬레이션 실행
-            MonteCarloReport report = _runner.RunSimulation(player, enemy, settings);
+            // 4. NvM 시뮬레이션 실행
+            Debug.Log($"[Simulation] Starting {settings.Iterations} iterations...");
+            MonteCarloReport report = _runner.RunTeamSimulation(playerBattleTeam, enemyBattleTeam, settings);
 
             // 5. 결과 저장 및 표시
             _reportHistory.Add(report);
             resultPanel.DisplayResult(report);
 
-            Debug.Log($"Simulation completed: {report.WinRate:F1}% Player Win Rate");
+            Debug.Log($"[Result] Win Rate: {report.WinRate:F1}% ({report.WinCount}/{report.TotalCount}), Avg Turns: {report.AvgTurns:F1}");
         }
     }
 }
