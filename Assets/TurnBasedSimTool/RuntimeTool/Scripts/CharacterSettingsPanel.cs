@@ -224,14 +224,15 @@ namespace TurnBasedSimTool.Runtime
                 GameObject newItem = Instantiate(actionItemPrefab, actionListContent);
 
                 // 새로 추가된 ActionItem에 현재 코스트 시스템 상태 적용
-                if (_connectedSimPanel != null)
+                ActionItemUI itemUI = newItem.GetComponent<ActionItemUI>();
+                if (itemUI != null)
                 {
-                    ActionItemUI itemUI = newItem.GetComponent<ActionItemUI>();
-                    if (itemUI != null)
-                    {
-                        bool costSystemEnabled = _connectedSimPanel.GetSettings().UseCostSystem;
-                        itemUI.SetCostFieldActive(costSystemEnabled);
-                    }
+                    // SimPanel이 연결되어 있으면 상태 가져오기, 아니면 기본값(false)
+                    bool costSystemEnabled = _connectedSimPanel != null 
+                        ? _connectedSimPanel.GetSettings().UseCostSystem 
+                        : false;
+                    
+                    itemUI.SetCostFieldActive(costSystemEnabled);
                 }
 
                 // 스크롤 상태 업데이트
