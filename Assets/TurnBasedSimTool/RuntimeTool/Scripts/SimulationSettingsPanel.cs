@@ -27,8 +27,15 @@ namespace TurnBasedSimTool.Runtime
         [SerializeField] private TMP_Dropdown tiebreakStatDropdown;     // 타이브레이크 스탯 선택
         [SerializeField] private TMP_InputField customStatNameInput;    // 커스텀 스탯 이름
 
+        [Header("Autocomplete")]
+        [SerializeField] private AutocompleteSuggestionPanel autocompleteSuggestionPanel; // 자동완성 패널
+
         [Header("Turn Order (when Speed OFF)")]
         [SerializeField] private TMP_Dropdown firstTurnDropdown;
+
+        [Header("Save/Load")]
+        [SerializeField] private Button saveButton;
+        [SerializeField] private Button loadButton;
 
         // 이벤트
         public event System.Action<bool> OnCostSystemChanged;
@@ -102,7 +109,27 @@ namespace TurnBasedSimTool.Runtime
             if (customStatNameInput != null)
             {
                 customStatNameInput.onEndEdit.AddListener(ValidateCustomStatName);
+                customStatNameInput.onValueChanged.AddListener(OnCustomStatInputChanged);
+
+                // onDeselect 제거 - Background Panel이 외부 클릭 처리
             }
+
+            // 자동완성 패널 초기화
+            InitializeAutocomplete();
+
+            // Save/Load 버튼 연결
+            if (saveButton != null)
+            {
+                saveButton.onClick.AddListener(SaveSettings);
+            }
+
+            if (loadButton != null)
+            {
+                loadButton.onClick.AddListener(LoadSettings);
+            }
+
+            // 시작 시 자동 로드
+            AutoLoadSettings();
         }
 
         private void OnCostToggleChanged(bool isOn)
@@ -192,9 +219,8 @@ namespace TurnBasedSimTool.Runtime
 
         private bool IsValidStatName(string statName)
         {
-            // DefaultUnit의 기본 속성들
-            string[] validStats = { "Defense", "Evasion", "CritRate", "CritMultiplier", "Speed", "MaxHp", "CurrentHp" };
-            
+            var validStats = GetValidStatNames();
+
             foreach (var validStat in validStats)
             {
                 if (statName.Equals(validStat, System.StringComparison.OrdinalIgnoreCase))
@@ -204,6 +230,35 @@ namespace TurnBasedSimTool.Runtime
             // CustomData는 나중에 실제 유닛 검증 필요
             // 지금은 일단 경고만 표시
             return false;
+        }
+
+        /// <summary>
+        /// 유효한 스탯 이름 목록 가져오기 (Reflection 사용)
+        /// DefaultUnit의 public int 프로퍼티를 자동으로 감지
+        /// </summary>
+        private System.Collections.Generic.List<string> GetValidStatNames()
+        {
+            var statNames = new System.Collections.Generic.List<string>();
+
+            // DefaultUnit의 타입 가져오기
+            var unitType = typeof(TurnBasedSimTool.Standard.DefaultUnit);
+
+            // public 프로퍼티 중 int 타입만 필터링
+            var properties = unitType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+            foreach (var prop in properties)
+            {
+                // int 타입 프로퍼티만 추가
+                if (prop.PropertyType == typeof(int))
+                {
+                    statNames.Add(prop.Name);
+                }
+            }
+
+            // 알파벳 순으로 정렬
+            statNames.Sort();
+
+            return statNames;
         }
 
         /// <summary>
@@ -400,6 +455,84 @@ namespace TurnBasedSimTool.Runtime
             if (speedTiebreakDropdown) speedTiebreakDropdown.value = (int)settings.SpeedTiebreak;
             if (tiebreakStatDropdown) tiebreakStatDropdown.value = (int)settings.TiebreakStat;
             if (customStatNameInput) customStatNameInput.text = settings.CustomTiebreakStatName;
+        }
+
+        /// <summary>
+        /// 자동완성 패널 초기화
+        /// </summary>
+        private void InitializeAutocomplete()
+        {
+            if (autocompleteSuggestionPanel == null || customStatNameInput == null)
+                return;
+
+            var validStats = GetValidStatNames();
+            autocompleteSuggestionPanel.Initialize(validStats, customStatNameInput, OnAutocompleteSuggestionSelected);
+        }
+
+        /// <summary>
+        /// 커스텀 스탯 입력 변경 시 (실시간)
+        /// </summary>
+        private void OnCustomStatInputChanged(string inputText)
+        {
+            if (autocompleteSuggestionPanel == null)
+                return;
+
+            // 자동완성 패널 업데이트
+            autocompleteSuggestionPanel.UpdateSuggestions(inputText);
+        }
+
+        /// <summary>
+        /// 자동완성 제안 선택 시
+        /// </summary>
+        private void OnAutocompleteSuggestionSelected(string selectedStat)
+        {
+            // 선택된 스탯으로 검증 실행
+            ValidateCustomStatName(selectedStat);
+        }
+
+        // onDeselect 관련 메서드 제거됨 - Background Panel이 외부 클릭 처리
+
+        /// <summary>
+        /// 설정 저장
+        /// </summary>
+        private void SaveSettings()
+        {
+            SimulationSettings settings = GetSettings();
+            SettingsManager.SaveSettings(settings);
+            Debug.Log("[SettingsPanel] Settings saved successfully!");
+        }
+
+        /// <summary>
+        /// 설정 불러오기
+        /// </summary>
+        private void LoadSettings()
+        {
+            SimulationSettings settings = SettingsManager.LoadSettings();
+            if (settings != null)
+            {
+                SetSettings(settings);
+                Debug.Log("[SettingsPanel] Settings loaded successfully!");
+            }
+            else
+            {
+                Debug.LogWarning("[SettingsPanel] No saved settings found.");
+            }
+        }
+
+        /// <summary>
+        /// 시작 시 자동 로드
+        /// </summary>
+        private void AutoLoadSettings()
+        {
+            if (SettingsManager.HasSavedSettings())
+            {
+                SimulationSettings settings = SettingsManager.LoadSettings();
+                if (settings != null)
+                {
+                    SetSettings(settings);
+                    Debug.Log("[SettingsPanel] Auto-loaded last settings.");
+                }
+            }
         }
     }
 }
