@@ -21,6 +21,11 @@
   },
   "samples": [
     {
+      "displayName": "Battle Simulation Dashboard",
+      "description": "Complete simulation scene with NvN combat, cost/speed systems, team save/load, and Monte Carlo analysis",
+      "path": "Samples/BattleSimDashboard"
+    },
+    {
       "displayName": "Example Custom Units",
       "description": "Example implementations of custom units and actions",
       "path": "Examples"
