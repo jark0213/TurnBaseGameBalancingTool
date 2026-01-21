@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEditor;
 using TurnBasedSimTool.Core;
-using TurnBasedSim.Standard;
+using TurnBasedSimTool.Standard;
 
 public class BattleSimWindow : EditorWindow
 {

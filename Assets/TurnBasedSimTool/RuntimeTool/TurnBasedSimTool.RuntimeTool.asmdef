@@ -1,0 +1,20 @@
+{
+    "name": "TurnBasedSimTool.RuntimeTool",
+    "rootNamespace": "TurnBasedSimTool.Runtime",
+    "references": [
+        "TurnBasedSimTool.Core",
+        "TurnBasedSimTool.Standard",
+        "Unity.TextMeshPro",
+        "Unity.Nuget.Newtonsoft-Json",
+        "StandaloneFileBrowser"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

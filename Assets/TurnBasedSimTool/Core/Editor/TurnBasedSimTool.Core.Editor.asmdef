@@ -1,0 +1,19 @@
+{
+    "name": "TurnBasedSimTool.Core.Editor",
+    "rootNamespace": "",
+    "references": [
+        "TurnBasedSimTool.Core",
+        "TurnBasedSimTool.Standard"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
