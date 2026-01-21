@@ -153,5 +153,20 @@ namespace TurnBasedSimTool.Runtime
             if (intervalInput) intervalInput.text = interval.ToString();
             if (costInput) costInput.text = cost.ToString();
         }
+
+        /// <summary>
+        /// 액션 데이터 설정 (로드 시 사용)
+        /// </summary>
+        public void SetActionData(string actionName, int damage, int maxDamage, int cost, int interval, bool useRangedDamage)
+        {
+            if (useRangedDamage)
+            {
+                SetupRanged(actionName, damage, maxDamage, true, interval, cost);
+            }
+            else
+            {
+                Setup(actionName, damage, true, interval, cost);
+            }
+        }
     }
 }

@@ -1,0 +1,29 @@
+{
+  "name": "com.milestone.turnbasedsimtool",
+  "version": "1.0.0",
+  "displayName": "Turn-Based Battle Simulation Tool",
+  "description": "Universal turn-based battle balancing tool for N vs M combat simulation with cost/speed systems and Monte Carlo analysis",
+  "unity": "2020.3",
+  "keywords": [
+    "turn-based",
+    "battle",
+    "simulation",
+    "balancing",
+    "monte-carlo"
+  ],
+  "author": {
+    "name": "Milestone",
+    "url": "https://github.com/milestone"
+  },
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
+    "com.unity.textmeshpro": "3.0.6"
+  },
+  "samples": [
+    {
+      "displayName": "Example Custom Units",
+      "description": "Example implementations of custom units and actions",
+      "path": "Examples"
+    }
+  ]
+}

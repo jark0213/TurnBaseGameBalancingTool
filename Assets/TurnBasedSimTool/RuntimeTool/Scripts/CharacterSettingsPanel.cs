@@ -262,5 +262,135 @@ namespace TurnBasedSimTool.Runtime
                 actionScrollController.OnContentChanged();
             }
         }
+
+        // ============================
+        // 데이터 로드
+        // ============================
+
+        /// <summary>
+        /// IBattleUnit 데이터를 UI에 로드
+        /// </summary>
+        public void LoadFromUnit(IBattleUnit unit, List<IBattleAction> actions)
+        {
+            if (unit == null)
+            {
+                Debug.LogWarning("[CharacterSettingsPanel] Unit is null. Cannot load.");
+                return;
+            }
+
+            // 기본 정보 로드
+            if (characterNameInput != null)
+                characterNameInput.text = unit.Name;
+
+            if (hpInput != null)
+                hpInput.text = unit.MaxHp.ToString();
+
+            // DefaultUnit 타입이면 추가 스탯 로드
+            if (unit is DefaultUnit defaultUnit)
+            {
+                if (defenseInput != null)
+                    defenseInput.text = defaultUnit.Defense.ToString();
+
+                if (evasionInput != null)
+                    evasionInput.text = defaultUnit.Evasion.ToString();
+
+                if (critRateInput != null)
+                    critRateInput.text = defaultUnit.CritRate.ToString();
+
+                if (speedInput != null)
+                    speedInput.text = defaultUnit.Speed.ToString();
+            }
+
+            // 액션 로드
+            ClearActions();
+
+            if (actions != null && actions.Count > 0)
+            {
+                foreach (var action in actions)
+                {
+                    LoadAction(action);
+                }
+            }
+
+            Debug.Log($"[CharacterSettingsPanel] Loaded unit: {unit.Name} with {actions?.Count ?? 0} actions");
+        }
+
+        /// <summary>
+        /// 개별 액션을 UI에 추가
+        /// </summary>
+        private void LoadAction(IBattleAction action)
+        {
+            if (actionItemPrefab == null || actionListContent == null)
+                return;
+
+            GameObject actionObj = Instantiate(actionItemPrefab, actionListContent);
+            ActionItemUI actionItem = actionObj.GetComponent<ActionItemUI>();
+
+            if (actionItem == null)
+            {
+                Debug.LogError("[CharacterSettingsPanel] ActionItemUI component not found!");
+                Destroy(actionObj);
+                return;
+            }
+
+            // 인터벌 확인
+            int interval = 1;
+            IBattleAction unwrappedAction = action;
+
+            if (action is IntervalActionAdapter intervalAdapter)
+            {
+                interval = intervalAdapter.Interval;
+                unwrappedAction = intervalAdapter.WrappedAction;
+            }
+
+            // 액션 타입별 데이터 설정
+            if (unwrappedAction is RangedDamageAction rangedAction)
+            {
+                actionItem.SetActionData(
+                    rangedAction.ActionName,
+                    rangedAction.MinDamage,
+                    rangedAction.MaxDamage,
+                    rangedAction.Cost,
+                    interval,
+                    useRangedDamage: true
+                );
+            }
+            else if (unwrappedAction is GenericAction genericAction)
+            {
+                actionItem.SetActionData(
+                    genericAction.ActionName,
+                    genericAction.Damage,
+                    0,
+                    genericAction.Cost,
+                    interval,
+                    useRangedDamage: false
+                );
+            }
+            else
+            {
+                // 알 수 없는 타입 - 기본값으로 추가
+                actionItem.SetActionData(
+                    unwrappedAction.ActionName,
+                    0,
+                    0,
+                    unwrappedAction.GetCost(null),
+                    interval,
+                    useRangedDamage: false
+                );
+            }
+
+            // 코스트 시스템 상태 적용
+            if (_connectedSimPanel != null)
+            {
+                bool costSystemEnabled = _connectedSimPanel.GetSettings().UseCostSystem;
+                actionItem.SetCostFieldActive(costSystemEnabled);
+            }
+
+            // 스크롤 상태 업데이트
+            if (actionScrollController != null)
+            {
+                actionScrollController.OnContentChanged();
+            }
+        }
     }
 }

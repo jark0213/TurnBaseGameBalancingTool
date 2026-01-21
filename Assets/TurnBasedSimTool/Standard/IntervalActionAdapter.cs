@@ -13,6 +13,8 @@ namespace TurnBasedSimTool.Standard
         private int _currentTurnCount = 0;
 
         public string ActionName => _baseAction.ActionName;
+        public int Interval => _interval;
+        public IBattleAction WrappedAction => _baseAction;
 
         public IntervalActionAdapter(IBattleAction baseAction, int interval)
         {

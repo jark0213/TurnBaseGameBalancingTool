@@ -1,8 +1,10 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using TurnBasedSimTool.Core;
+using SFB;
 
 namespace TurnBasedSimTool.Runtime
 {
@@ -20,6 +22,11 @@ namespace TurnBasedSimTool.Runtime
         [SerializeField] private Transform characterListContent;
         [SerializeField] private GameObject characterPanelPrefab; // CharacterSettingsPanel Prefab
 
+        [Header("Team Save/Load")]
+        [SerializeField] private Button saveTeamButton;
+        [SerializeField] private Button loadTeamButton;
+        [SerializeField] private Button openFolderButton;
+
         [Header("Defeat Condition")]
         [SerializeField] private TMP_Dropdown defeatConditionDropdown;
         [SerializeField] private TMP_Dropdown mainCharacterDropdown; // 주캐 선택
@@ -34,6 +41,22 @@ namespace TurnBasedSimTool.Runtime
             {
                 addCharacterButton.onClick.RemoveAllListeners();
                 addCharacterButton.onClick.AddListener(AddCharacter);
+            }
+
+            // Save/Load 버튼
+            if (saveTeamButton != null)
+            {
+                saveTeamButton.onClick.AddListener(SaveTeam);
+            }
+
+            if (loadTeamButton != null)
+            {
+                loadTeamButton.onClick.AddListener(LoadTeam);
+            }
+
+            if (openFolderButton != null)
+            {
+                openFolderButton.onClick.AddListener(OpenSaveFolder);
             }
 
             // Team Foldout 토글은 FoldoutContentController가 처리
@@ -58,7 +81,9 @@ namespace TurnBasedSimTool.Runtime
                 mainCharacterSelector.SetActive(false);
             }
 
-            // 기본 캐릭터 1개 추가
+            // 마지막 팀 자동 로드 (없으면 기본 캐릭터 1개 추가)
+            AutoLoadLastTeam();
+
             if (characters.Count == 0)
             {
                 AddCharacter();
@@ -301,6 +326,209 @@ namespace TurnBasedSimTool.Runtime
             }
 
             return team;
+        }
+
+        // ============================
+        // Team Save/Load 기능
+        // ============================
+
+        /// <summary>
+        /// 팀 저장 (파일 다이얼로그)
+        /// </summary>
+        private void SaveTeam()
+        {
+            List<IBattleUnit> units = CreateTeam();
+
+            if (units.Count == 0)
+            {
+                Debug.LogWarning("[TeamSettingsPanel] No characters to save.");
+                return;
+            }
+
+            // 액션 수집
+            var actionMap = CollectAllActions(units);
+
+            // 저장 폴더 경로
+            string folderPath = Path.Combine(Application.persistentDataPath, "Teams");
+            if (!Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+
+            // Save File Dialog
+            string path = StandaloneFileBrowser.SaveFilePanel(
+                $"Save {teamName}",
+                folderPath,
+                $"{teamName}.json",
+                "json"
+            );
+
+            if (string.IsNullOrEmpty(path))
+            {
+                Debug.Log("[TeamSettingsPanel] Save cancelled.");
+                return;
+            }
+
+            try
+            {
+                // TeamData 저장
+                var teamData = new TeamData
+                {
+                    Units = units,
+                    Actions = new Dictionary<int, List<IBattleAction>>()
+                };
+
+                for (int i = 0; i < units.Count; i++)
+                {
+                    if (actionMap.ContainsKey(units[i]))
+                    {
+                        teamData.Actions[i] = actionMap[units[i]];
+                    }
+                }
+
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(teamData, new Newtonsoft.Json.JsonSerializerSettings
+                {
+                    TypeNameHandling = Newtonsoft.Json.TypeNameHandling.Auto,
+                    Formatting = Newtonsoft.Json.Formatting.Indented,
+                    ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
+                });
+
+                File.WriteAllText(path, json);
+
+                // 마지막 저장 경로 기억
+                PlayerPrefs.SetString($"Last{teamName}Path", path);
+                PlayerPrefs.Save();
+
+                Debug.Log($"[TeamSettingsPanel] Team saved to: {path}");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[TeamSettingsPanel] Failed to save team: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 팀 불러오기 (파일 다이얼로그)
+        /// </summary>
+        private void LoadTeam()
+        {
+            // 저장 폴더 경로
+            string folderPath = Path.Combine(Application.persistentDataPath, "Teams");
+            if (!Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+
+            // Open File Dialog
+            var extensions = new[] { new ExtensionFilter("JSON Files", "json") };
+            string[] paths = StandaloneFileBrowser.OpenFilePanel(
+                $"Load {teamName}",
+                folderPath,
+                extensions,
+                false
+            );
+
+            if (paths.Length == 0 || string.IsNullOrEmpty(paths[0]))
+            {
+                Debug.Log("[TeamSettingsPanel] Load cancelled.");
+                return;
+            }
+
+            string path = paths[0];
+            LoadTeamFromPath(path);
+
+            // 마지막 불러온 경로 기억
+            PlayerPrefs.SetString($"Last{teamName}Path", path);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>
+        /// 특정 경로에서 팀 불러오기
+        /// </summary>
+        private void LoadTeamFromPath(string path)
+        {
+            try
+            {
+                string json = File.ReadAllText(path);
+                var teamData = Newtonsoft.Json.JsonConvert.DeserializeObject<TeamData>(json, new Newtonsoft.Json.JsonSerializerSettings
+                {
+                    TypeNameHandling = Newtonsoft.Json.TypeNameHandling.Auto
+                });
+
+                if (teamData == null || teamData.Units == null || teamData.Units.Count == 0)
+                {
+                    Debug.LogError($"[TeamSettingsPanel] Failed to load team from: {path}");
+                    return;
+                }
+
+                // 기존 캐릭터 모두 제거
+                ClearAllCharacters();
+
+                // 불러온 유닛들로 캐릭터 패널 재생성
+                for (int i = 0; i < teamData.Units.Count; i++)
+                {
+                    var unit = teamData.Units[i];
+                    AddCharacter();
+
+                    // 액션 가져오기
+                    List<IBattleAction> actions = null;
+                    if (teamData.Actions != null && teamData.Actions.ContainsKey(i))
+                    {
+                        actions = teamData.Actions[i];
+                    }
+
+                    // 캐릭터 데이터 로드
+                    characters[characters.Count - 1].LoadFromUnit(unit, actions);
+                }
+
+                Debug.Log($"[TeamSettingsPanel] Team loaded from: {path} ({teamData.Units.Count} characters)");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[TeamSettingsPanel] Failed to load team: {e.Message}\n{e.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// 마지막 저장한 팀 자동 로드
+        /// </summary>
+        private void AutoLoadLastTeam()
+        {
+            string lastPath = PlayerPrefs.GetString($"Last{teamName}Path", "");
+
+            if (!string.IsNullOrEmpty(lastPath) && File.Exists(lastPath))
+            {
+                Debug.Log($"[TeamSettingsPanel] Auto-loading last team from: {lastPath}");
+                LoadTeamFromPath(lastPath);
+            }
+        }
+
+        /// <summary>
+        /// 저장 폴더를 파일 탐색기로 열기 (크로스 플랫폼)
+        /// </summary>
+        private void OpenSaveFolder()
+        {
+            string folderPath = System.IO.Path.Combine(Application.persistentDataPath, "Teams");
+
+            // 폴더가 없으면 생성
+            if (!System.IO.Directory.Exists(folderPath))
+            {
+                System.IO.Directory.CreateDirectory(folderPath);
+            }
+
+            // 플랫폼별로 파일 탐색기 열기
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
+            System.Diagnostics.Process.Start("explorer.exe", folderPath);
+#elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+            System.Diagnostics.Process.Start("open", folderPath);
+#elif UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
+            System.Diagnostics.Process.Start("xdg-open", folderPath);
+#else
+            Debug.LogWarning("[TeamSettingsPanel] OpenFolder is not supported on this platform.");
+            Debug.Log($"[TeamSettingsPanel] Save folder: {folderPath}");
+#endif
+
+            Debug.Log($"[TeamSettingsPanel] Opened save folder: {folderPath}");
         }
     }
 
